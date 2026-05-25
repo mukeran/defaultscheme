@@ -100,7 +100,7 @@ endif
 after-install::
 	install.exec "killall -9 lsd || true"
 
-.PHONY: rename-package-rootless rename-package-roothide
+.PHONY: rename-package-rootful rename-package-rootless rename-package-roothide
 
 define rename_package_with_scheme
 	@pkg=$$(ls -t packages/*.deb 2>/dev/null | head -n 1); \
@@ -119,6 +119,9 @@ define rename_package_with_scheme
 	fi
 endef
 
+rename-package-rootful:
+	$(call rename_package_with_scheme,rootful)
+
 rename-package-rootless:
 	$(call rename_package_with_scheme,rootless)
 
@@ -130,6 +133,7 @@ rename-package-roothide:
 package-rootful:
 	$(MAKE) clean
 	$(MAKE) all package THEOS_PACKAGE_SCHEME=
+	$(MAKE) rename-package-rootful
 
 package-rootless:
 	$(MAKE) clean
