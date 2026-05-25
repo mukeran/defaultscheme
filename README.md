@@ -16,6 +16,7 @@ Force a preferred app for URL Schemes and Universal Links on jailbroken iOS, wit
   The tweak filter. It currently injects only into:
   - `SpringBoard`
   - `lsd`
+  - `DefaultScheme`
 
 ## How It Works
 
@@ -83,6 +84,28 @@ After installation, the `DefaultScheme` app provides:
   Directly test URL opening behavior.
 - `Log`
   View recent open logs including source, target, URL, type, and timestamp.
+- `Incoming Link`
+  External links routed to DefaultScheme display the complete original link in a dedicated view.
+
+## Incoming Links
+
+The app registers the `defaultscheme` URL scheme. Opening any link with that scheme, such as:
+
+```text
+defaultscheme://show?link=https%3A%2F%2Fexample.com%2Fpath%3Fq%3D1
+```
+
+launches DefaultScheme and presents a standalone view containing the complete link. The view also offers copy and test actions.
+
+`DefaultScheme` is also available as a target in the `Schemes` and `Links` rule pickers. Configure either a URL scheme or a Universal Link rule to DefaultScheme, and external opens of that URL will launch the DefaultScheme app and show the complete original URL in the same dedicated view.
+
+Both custom-scheme opens and Universal Link handoff are handled by the app. Universal Links use `NSUserActivity.webpageURL`, so the page receives the complete original `http`/`https` URL rather than a wrapped `defaultscheme` URL.
+
+From the incoming link view, tap `Open With` to choose any app that originally registered the same scheme or link. Selecting an app opens it directly with the same URL. If only one original candidate is available, it opens immediately.
+
+Open With uses the foreground `UIApplication` open path and passes the selected target to the injected LaunchServices hooks. This keeps the original URL in the final app handoff for both custom schemes and Universal Links; private `LSApplicationWorkspace`/`LSAppLink` calls are intentionally avoided because they fail with `-50`/`-54` from the DefaultScheme process.
+
+Candidate discovery uses `LSApplicationWorkspace`'s original registration data, and DefaultScheme itself is excluded from the list. For Universal Links, `applicationsAvailableForOpeningURL:` often returns Safari even when other apps have associated-domain entitlements, so DefaultScheme also uses the Shared Web Credentials system link rules to enumerate the apps that really registered the URL. Safari is not treated as an original Universal Link candidate.
 
 After saving rules, the app syncs the config mirror and restarts `lsd` so the main routing path picks up changes quickly.
 
@@ -107,8 +130,8 @@ defaultschemectl probe-url weixin://scanqrcode
 defaultschemectl open-url weixin://scanqrcode
 defaultschemectl perform-open-url com.tencent.xin weixin://scanqrcode
 defaultschemectl trace-url weixin://scanqrcode
-defaultschemectl inspect-applink https://link.example.com/open/sdk/ul
-defaultschemectl inspect-swc https://link.example.com/open/sdk/ul
+defaultschemectl inspect-applink https://link.example.com/invite/abc
+defaultschemectl inspect-swc https://link.example.com/invite/abc
 defaultschemectl inspect-method LSApplicationWorkspace URLOverrideForURL:
 defaultschemectl list-methods LSApplicationWorkspace
 defaultschemectl list-classes LS
@@ -157,6 +180,12 @@ make install-roothide
 - roothide 包默认只构建 `arm64e`
 - 打包时会附带 roothide patch 与 pkgmirror 布局
 - 当前开发流程默认以 roothide 为主
+
+## rootless Notes
+
+- `make package-rootless` 会默认连续产出两个 rootless 包：`iphoneos-arm64` 和 `iphoneos-arm64e`
+- `iphoneos-arm64` 包只编译 `arm64`，`iphoneos-arm64e` 包只编译 `arm64e`
+- 如果需要 roothide 专用布局，使用 `make package-roothide`
 
 ## Related Files
 
