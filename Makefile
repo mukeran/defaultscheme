@@ -9,6 +9,10 @@ export CLANG_MODULE_CACHE_PATH ?= $(CURDIR)/.theos/module-cache
 PACKAGE_VERSION = $(THEOS_PACKAGE_BASE_VERSION)$(VERSION.EXTRAVERSION)
 ifeq ($(THEOS_PACKAGE_SCHEME),roothide)
 ARCHS = arm64e
+else ifeq ($(PACKAGE_ARCH),iphoneos-arm64e)
+ARCHS = arm64e
+else ifeq ($(PACKAGE_ARCH),iphoneos-arm64)
+ARCHS = arm64
 else
 ARCHS = arm64 arm64e
 endif
@@ -80,6 +84,9 @@ $(THEOS_STAGING_DIR)/DEBIAN/control: control
 
 before-package:: $(THEOS_STAGING_DIR)/DEBIAN/control
 	$(ECHO_NOTHING)mkdir -p "$(THEOS_STAGING_DIR)/DEBIAN"$(ECHO_END)
+	$(ECHO_NOTHING)if [ -n "$(THEOS_PACKAGE_INSTALL_PREFIX)" ]; then \
+		mkdir -p "$(_THEOS_SCHEME_STAGE)"; \
+	fi$(ECHO_END)
 	$(ECHO_NOTHING)cp "layout/DEBIAN/postinst" "$(THEOS_STAGING_DIR)/DEBIAN/postinst"$(ECHO_END)
 	$(ECHO_NOTHING)chmod 0755 "$(THEOS_STAGING_DIR)/DEBIAN/postinst"$(ECHO_END)
 	$(ECHO_NOTHING)rm -f "$(THEOS_STAGING_DIR)/Applications/DefaultScheme.app/LaunchScreen.storyboard"$(ECHO_END)
@@ -90,6 +97,12 @@ ifeq ($(THEOS_PACKAGE_SCHEME),roothide)
 	$(ECHO_NOTHING)if [ -f "$(THEOS_STAGING_DIR)/DEBIAN/control" ]; then \
 		sed -i '' -E 's/^(Architecture:[[:space:]]*).*/\1iphoneos-arm64e/' "$(THEOS_STAGING_DIR)/DEBIAN/control"; \
 	fi$(ECHO_END)
+else ifeq ($(THEOS_PACKAGE_SCHEME),rootless)
+	$(ECHO_NOTHING)if [ -n "$(PACKAGE_ARCH)" ] && [ -f "$(THEOS_STAGING_DIR)/DEBIAN/control" ]; then \
+		sed -i '' -E 's/^(Architecture:[[:space:]]*).*/\1$(PACKAGE_ARCH)/' "$(THEOS_STAGING_DIR)/DEBIAN/control"; \
+	fi$(ECHO_END)
+endif
+ifeq ($(THEOS_PACKAGE_SCHEME),roothide)
 	$(ECHO_NOTHING)ln -sf /usr/lib/DynamicPatches/AutoPatches.dylib "$(THEOS_STAGING_DIR)/Library/MobileSubstrate/DynamicLibraries/DefaultSchemeTweak.dylib.roothidepatch"$(ECHO_END)
 	$(ECHO_NOTHING)mkdir -p "$(THEOS_STAGING_DIR)/var/mobile/Library/pkgmirror/Library/MobileSubstrate/DynamicLibraries"$(ECHO_END)
 	$(ECHO_NOTHING)cp -f "$(THEOS_STAGING_DIR)/Library/MobileSubstrate/DynamicLibraries/DefaultSchemeTweak.dylib" "$(THEOS_STAGING_DIR)/var/mobile/Library/pkgmirror/Library/MobileSubstrate/DynamicLibraries/DefaultSchemeTweak.dylib"$(ECHO_END)
@@ -123,7 +136,15 @@ rename-package-rootful:
 	$(call rename_package_with_scheme,rootful)
 
 rename-package-rootless:
-	$(call rename_package_with_scheme,rootless)
+	@pkg=$$(ls -t packages/*.deb 2>/dev/null | head -n 1); \
+	if [ -n "$$pkg" ]; then \
+		new=$$(printf '%s\n' "$$pkg" | sed -E 's/_iphoneos-[^._]+\.deb$$/_rootless_$(PACKAGE_ARCH).deb/'); \
+		if [ "$$pkg" != "$$new" ]; then \
+			mv "$$pkg" "$$new"; \
+			echo "$$new" > .theos/last_package; \
+			echo "Renamed package: $$new"; \
+		fi; \
+	fi
 
 rename-package-roothide:
 	$(call rename_package_with_scheme,roothide)
@@ -137,8 +158,11 @@ package-rootful:
 
 package-rootless:
 	$(MAKE) clean
-	$(MAKE) all package THEOS_PACKAGE_SCHEME=rootless
-	$(MAKE) rename-package-rootless
+	$(MAKE) all package THEOS_PACKAGE_SCHEME=rootless PACKAGE_ARCH=iphoneos-arm64
+	$(MAKE) rename-package-rootless PACKAGE_ARCH=iphoneos-arm64
+	$(MAKE) clean
+	$(MAKE) all package THEOS_PACKAGE_SCHEME=rootless PACKAGE_ARCH=iphoneos-arm64e
+	$(MAKE) rename-package-rootless PACKAGE_ARCH=iphoneos-arm64e
 
 package-roothide:
 	$(MAKE) clean

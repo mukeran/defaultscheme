@@ -158,6 +158,12 @@ make install-roothide
 - 打包时会附带 roothide patch 与 pkgmirror 布局
 - 当前开发流程默认以 roothide 为主
 
+## rootless Notes
+
+- `make package-rootless` 会默认连续产出两个 rootless 包：`iphoneos-arm64` 和 `iphoneos-arm64e`
+- `iphoneos-arm64` 包只编译 `arm64`，`iphoneos-arm64e` 包只编译 `arm64e`
+- 如果需要 roothide 专用布局，使用 `make package-roothide`
+
 ## Related Files
 
 - [Makefile](Makefile)
