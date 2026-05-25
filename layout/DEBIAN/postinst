@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+if command -v uicache >/dev/null 2>&1; then
+	uicache -a -r 2>/dev/null || true
+fi
+for helper in /usr/bin/defaultschemectl /var/jb/usr/bin/defaultschemectl; do
+	if [ -f "$helper" ]; then
+		chown root:wheel "$helper" 2>/dev/null || true
+		chmod 4755 "$helper" 2>/dev/null || true
+	fi
+done
+if [ -f /var/jb/Library/MobileSubstrate/DynamicLibraries/DefaultSchemeTweak.plist ] && [ -d /var/mobile/Library/pkgmirror/Library/MobileSubstrate/DynamicLibraries ]; then
+	cp -f /var/jb/Library/MobileSubstrate/DynamicLibraries/DefaultSchemeTweak.plist /var/mobile/Library/pkgmirror/Library/MobileSubstrate/DynamicLibraries/DefaultSchemeTweak.plist 2>/dev/null || true
+fi
+killall -9 lsd 2>/dev/null || true
+exit 0
