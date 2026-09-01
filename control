@@ -1,6 +1,6 @@
 Package: codes.var.tweak.defaultscheme
 Name: DefaultScheme
-Version: 0.1.0
+Version: 0.2.8
 Architecture: iphoneos-arm64
 Description: Force preferred app for duplicated URL schemes and Universal Links.
 Maintainer: mukeran

@@ -7,6 +7,8 @@
 NSString *const kDSRoutingConfigPath = @"/private/var/mobile/Library/Preferences/codes.var.tweak.defaultscheme.plist";
 NSString *const kDSRoutingConfigMirrorFilename = @"DefaultSchemeConfig.plist";
 NSString *const kDSNoAppBundleSentinel = @"__NO_APP__";
+NSString *const kDSDefaultSchemeAppBundleID = @"codes.var.tweak.defaultscheme";
+NSString *const kDSDefaultSchemeForwardTargetBundleIDKey = @"codes.var.tweak.defaultscheme.forwardTargetBundleID";
 NSString *const kDSRoutingLinksKey = @"links";
 NSString *const kDSLinkRuleHostKey = @"host";
 NSString *const kDSLinkRulePathKey = @"path";
@@ -38,6 +40,10 @@ NSString *const kDSOpenLogTargetNameKey = @"targetName";
 NSString *const kDSOpenLogHookSourceKey = @"hookSource";
 NSString *const kDSOpenLogRecordMatchedOnlyKey = @"openLogRecordsMatchedOnly";
 NSString *const kDSRoutingConfigChangedNotification = @"codes.var.tweak.defaultscheme.config.changed";
+
+BOOL DSIsDefaultSchemeAppBundleID(NSString *bundleID) {
+    return [bundleID isKindOfClass:NSString.class] && [bundleID isEqualToString:kDSDefaultSchemeAppBundleID];
+}
 
 static NSString *const kDSRoutingConfigDomain = @"codes.var.tweak.defaultscheme";
 static NSString *const kDSRoutingSchemesKey = @"schemes";

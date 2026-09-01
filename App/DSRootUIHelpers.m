@@ -393,3 +393,13 @@ UIImage *DSCombinedAppIconForBundleIDs(NSString *sourceBundleID, NSString *targe
     UIGraphicsEndImageContext();
     return image ?: targetImage;
 }
+
+NSArray<DSIncomingLinkOption *> *DSSortedIncomingLinkOptions(NSArray<DSIncomingLinkOption *> *options) {
+    return [options sortedArrayUsingComparator:^NSComparisonResult(DSIncomingLinkOption *a, DSIncomingLinkOption *b) {
+        NSComparisonResult result = [a.displayName ?: @"" localizedCaseInsensitiveCompare:b.displayName ?: @""];
+        if (result != NSOrderedSame) {
+            return result;
+        }
+        return [a.bundleID ?: @"" localizedCaseInsensitiveCompare:b.bundleID ?: @""];
+    }];
+}

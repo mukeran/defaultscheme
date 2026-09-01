@@ -22,6 +22,7 @@
 - (void)openApplicationWithBundleIdentifier:(NSString *)bundleIdentifier usingConfiguration:(id)config completionHandler:(id)completion;
 - (id)operationToOpenResource:(id)resource usingApplication:(id)application uniqueDocumentIdentifier:(id)uniqueDocumentIdentifier userInfo:(id)userInfo delegate:(id)delegate;
 - (id)operationToOpenResource:(id)resource usingApplication:(id)application userInfo:(id)userInfo delegate:(id)delegate;
+- (id)operationToOpenResource:(id)resource usingApplication:(id)application uniqueDocumentIdentifier:(id)uniqueDocumentIdentifier isContentManaged:(BOOL)isContentManaged sourceAuditToken:(const void *)sourceAuditToken userInfo:(id)userInfo options:(id)options delegate:(id)delegate;
 - (void)openURL:(NSURL *)url configuration:(id)config completionHandler:(id)completion;
 - (void)openURL:(NSURL *)url;
 - (void)openURL:(NSURL *)url withOptions:(id)options;

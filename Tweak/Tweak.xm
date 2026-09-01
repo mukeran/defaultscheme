@@ -49,6 +49,14 @@ static BOOL DSCurrentProcessShouldInitializeAsSourceApp(NSString *processName, N
         }
     }
 
+    if ([bundleID isEqualToString:kDSDefaultSchemeAppBundleID]) {
+        Class lsAppLinkClass = objc_getClass("LSAppLink");
+        if (lsAppLinkClass) {
+            DSLog(@"Initializing LSAppLink hooks in DefaultScheme");
+            DSInitLSAppLinkHooks(lsAppLinkClass);
+        }
+    }
+
     if (isLaunchServicesDaemon) {
         Class lsdOpenClientClass = objc_getClass("_LSDOpenClient");
         if (lsdOpenClientClass) {

@@ -5,6 +5,9 @@ NSString *const kDSTestHistoryDefaultsKey = @"codes.var.tweak.defaultscheme.test
 @implementation DSAppOption
 @end
 
+@implementation DSIncomingLinkOption
+@end
+
 @implementation DSRuleItem
 @end
 

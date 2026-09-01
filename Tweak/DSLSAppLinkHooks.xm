@@ -9,6 +9,8 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 
+static NSString *gDSLSAppLinkForwardTargetBundleID;
+
 static id DSApplicationRecordForBundleID(NSString *bundleID) {
     if (bundleID.length == 0 || DSIsNoAppRule(bundleID)) return nil;
     Class recordClass = objc_getClass("LSApplicationRecord");
@@ -36,6 +38,78 @@ static NSString *DSConfiguredBundleIDForAppLinkObject(id appLink) {
 static NSString *DSConfiguredBundleIDForAppLinkState(id state) {
     NSURL *url = DSLaunchServicesURLFromObject(state);
     return DSConfiguredBundleIDForURL(url);
+}
+
+static BOOL DSLSAppLinkIsDefaultSchemeProcess(void) {
+    NSString *bundleID = NSBundle.mainBundle.bundleIdentifier ?: @"";
+    return [bundleID isEqualToString:kDSDefaultSchemeAppBundleID];
+}
+
+static NSString *DSLSAppLinkForwardTargetBundleID(id appLink, id state, id config) {
+    if (!DSLSAppLinkIsDefaultSchemeProcess()) {
+        return nil;
+    }
+    NSArray<id> *objects = @[appLink ?: [NSNull null], state ?: [NSNull null], config ?: [NSNull null]];
+    for (id object in objects) {
+        if (![object isKindOfClass:NSDictionary.class]) {
+            continue;
+        }
+        NSString *targetBundleID = ((NSDictionary *)object)[kDSDefaultSchemeForwardTargetBundleIDKey];
+        if ([targetBundleID isKindOfClass:NSString.class] && targetBundleID.length > 0) {
+            return targetBundleID;
+        }
+    }
+    return nil;
+}
+
+static NSObject *DSLSAppLinkForwardLock(void) {
+    static NSObject *lock;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        lock = [NSObject new];
+    });
+    return lock;
+}
+
+static void DSLSAppLinkSetForwardTargetBundleID(NSString *bundleID) {
+    if (!DSLSAppLinkIsDefaultSchemeProcess() || bundleID.length == 0) {
+        return;
+    }
+    @synchronized(DSLSAppLinkForwardLock()) {
+        gDSLSAppLinkForwardTargetBundleID = [bundleID copy];
+    }
+}
+
+static void DSLSAppLinkClearForwardTargetBundleID(NSString *bundleID) {
+    if (!DSLSAppLinkIsDefaultSchemeProcess()) {
+        return;
+    }
+    @synchronized(DSLSAppLinkForwardLock()) {
+        if ([gDSLSAppLinkForwardTargetBundleID isEqualToString:bundleID ?: @""]) {
+            gDSLSAppLinkForwardTargetBundleID = nil;
+        }
+    }
+}
+
+void DSLSAppLinkBeginForwardingToBundleID(NSString *bundleID) {
+    DSLSAppLinkSetForwardTargetBundleID(bundleID);
+}
+
+void DSLSAppLinkEndForwardingToBundleID(NSString *bundleID) {
+    DSLSAppLinkClearForwardTargetBundleID(bundleID);
+}
+
+static NSString *DSLSAppLinkActiveForwardTargetBundleID(id appLink, id state, id config) {
+    NSString *markerTarget = DSLSAppLinkForwardTargetBundleID(appLink, state, config);
+    if (markerTarget.length > 0) {
+        return markerTarget;
+    }
+    if (!DSLSAppLinkIsDefaultSchemeProcess()) {
+        return nil;
+    }
+    @synchronized(DSLSAppLinkForwardLock()) {
+        return [gDSLSAppLinkForwardTargetBundleID copy];
+    }
 }
 
 static NSString *DSObservedBundleIDForAppLinkObject(id appLink) {
@@ -96,11 +170,17 @@ static DSOpenActionDecision *DSAppLinkDecision(NSString *source,
     return DSHandleOpenURLAction(source, url, sourceInfo, observedBundleID);
 }
 
+
 %group LSAppLinkHooks
 
 %hook LSAppLink
 
 - (void)openWithCompletionHandler:(id)completion {
+    if (DSLSAppLinkActiveForwardTargetBundleID(self, nil, nil)) {
+        DSLog(@"LSAppLink -openWithCompletionHandler: forwarding to selected app");
+        %orig(completion);
+        return;
+    }
     NSURL *url = DSExtractURLFromAppLink(self);
     if (!url) {
         DSLog(@"LSAppLink -openWithCompletionHandler: NO URL extracted, falling through");
@@ -175,6 +255,11 @@ static DSOpenActionDecision *DSAppLinkDecision(NSString *source,
 }
 
 - (void)openWithConfiguration:(id)config completionHandler:(id)completion {
+    if (DSLSAppLinkActiveForwardTargetBundleID(self, nil, config)) {
+        DSLog(@"LSAppLink -openWithConfiguration: forwarding to selected app");
+        %orig(config, completion);
+        return;
+    }
     NSURL *url = DSExtractURLFromAppLink(self);
     if (!url) {
         DSLog(@"LSAppLink -openWithConfiguration: NO URL extracted, falling through");
@@ -193,6 +278,11 @@ static DSOpenActionDecision *DSAppLinkDecision(NSString *source,
 }
 
 + (void)_openWithAppLink:(LSAppLink *)appLink state:(id)state completionHandler:(id)completion {
+    if (DSLSAppLinkActiveForwardTargetBundleID(appLink, state, nil)) {
+        DSLog(@"LSAppLink +_openWithAppLink: forwarding to selected app");
+        %orig(appLink, state, completion);
+        return;
+    }
     NSURL *url = DSExtractURLFromAppLink(appLink);
     if (!url) {
         DSLog(@"LSAppLink +_openWithAppLink: NO URL extracted, falling through");
@@ -211,6 +301,11 @@ static DSOpenActionDecision *DSAppLinkDecision(NSString *source,
 }
 
 + (void)_openAppLink:(LSAppLink *)appLink state:(id)state completionHandler:(id)completion {
+    if (DSLSAppLinkActiveForwardTargetBundleID(appLink, state, nil)) {
+        DSLog(@"LSAppLink +_openAppLink: forwarding to selected app");
+        %orig(appLink, state, completion);
+        return;
+    }
     NSURL *url = DSExtractURLFromAppLink(appLink);
     if (!url) {
         DSLog(@"LSAppLink +_openAppLink: NO URL extracted, falling through");

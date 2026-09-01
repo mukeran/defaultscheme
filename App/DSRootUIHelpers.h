@@ -19,3 +19,4 @@ NSString *DSOpenLogFormattedTimestamp(id timestampValue);
 NSArray<NSDictionary<NSString *, id> *> *DSSortedOpenLogs(void);
 UIImage *DSOpenLogAppIconForBundleID(NSString *bundleID, BOOL isSource);
 UIImage *DSCombinedAppIconForBundleIDs(NSString *sourceBundleID, NSString *targetBundleID);
+NSArray<DSIncomingLinkOption *> *DSSortedIncomingLinkOptions(NSArray<DSIncomingLinkOption *> *options);

@@ -23,6 +23,9 @@ APPLICATION_NAME = DefaultScheme
 DefaultScheme_FILES = \
 	App/main.m \
 	App/DSAppDelegate.m \
+	App/DSForwardingSupport.m \
+	App/DSIncomingLinkViewController.m \
+	App/DSIncomingLinkAppPickerViewController.m \
 	App/DSRootViewController.m \
 	App/DSRuleModels.m \
 	App/DSRootUIHelpers.m \
@@ -103,6 +106,7 @@ else ifeq ($(THEOS_PACKAGE_SCHEME),rootless)
 	fi$(ECHO_END)
 endif
 ifeq ($(THEOS_PACKAGE_SCHEME),roothide)
+	$(ECHO_NOTHING)rm -rf "$(THEOS_STAGING_DIR)/var/jb"$(ECHO_END)
 	$(ECHO_NOTHING)ln -sf /usr/lib/DynamicPatches/AutoPatches.dylib "$(THEOS_STAGING_DIR)/Library/MobileSubstrate/DynamicLibraries/DefaultSchemeTweak.dylib.roothidepatch"$(ECHO_END)
 	$(ECHO_NOTHING)mkdir -p "$(THEOS_STAGING_DIR)/var/mobile/Library/pkgmirror/Library/MobileSubstrate/DynamicLibraries"$(ECHO_END)
 	$(ECHO_NOTHING)cp -f "$(THEOS_STAGING_DIR)/Library/MobileSubstrate/DynamicLibraries/DefaultSchemeTweak.dylib" "$(THEOS_STAGING_DIR)/var/mobile/Library/pkgmirror/Library/MobileSubstrate/DynamicLibraries/DefaultSchemeTweak.dylib"$(ECHO_END)

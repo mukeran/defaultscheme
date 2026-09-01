@@ -11,4 +11,6 @@
 + (instancetype)defaultWorkspace;
 - (NSArray *)allInstalledApplications;
 - (NSArray *)applicationsAvailableForOpeningURL:(NSURL *)url;
+- (BOOL)openApplicationWithBundleID:(NSString *)bundleID;
+- (BOOL)openURL:(NSURL *)url withOptions:(id)options;
 @end

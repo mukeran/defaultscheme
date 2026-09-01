@@ -6,6 +6,7 @@
 #import "DSPrivateInterfaces.h"
 #import "DSRouteSupport.h"
 #import "DSTweakCommon.h"
+#include <dlfcn.h>
 
 static BOOL DSLSWorkspaceIsSourceAppProcess(void) {
     NSString *processName = NSProcessInfo.processInfo.processName ?: @"";
@@ -16,6 +17,11 @@ static BOOL DSLSWorkspaceIsSourceAppProcess(void) {
     return bundleID.length > 0 && ![bundleID isEqualToString:@"codes.var.tweak.defaultscheme"];
 }
 
+static BOOL DSLSWorkspaceIsDefaultSchemeProcess(void) {
+    NSString *bundleID = NSBundle.mainBundle.bundleIdentifier ?: @"";
+    return [bundleID isEqualToString:kDSDefaultSchemeAppBundleID];
+}
+
 static BOOL DSURLUsesHTTPFamily(NSURL *url) {
     NSString *scheme = url.scheme.lowercaseString;
     return [scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"];
@@ -23,6 +29,7 @@ static BOOL DSURLUsesHTTPFamily(NSURL *url) {
 
 static NSString *DSLSWorkspaceConfiguredBundleIDForURL(NSURL *url) {
     if (![url isKindOfClass:NSURL.class]) return nil;
+    if (DSLSWorkspaceIsDefaultSchemeProcess()) return nil;
     if (DSLSWorkspaceIsSourceAppProcess() && !DSURLUsesHTTPFamily(url)) {
         return nil;
     }
@@ -31,6 +38,9 @@ static NSString *DSLSWorkspaceConfiguredBundleIDForURL(NSURL *url) {
 
 static NSString *DSLSWorkspaceObservedBundleIDForURL(id workspace, NSURL *url) {
     if (![url isKindOfClass:NSURL.class] || url.absoluteString.length == 0) {
+        return nil;
+    }
+    if (DSLSWorkspaceIsDefaultSchemeProcess()) {
         return nil;
     }
 
@@ -50,6 +60,46 @@ static NSString *DSLSWorkspaceObservedBundleIDForURL(id workspace, NSURL *url) {
         } @catch (__unused NSException *exception) {}
     }
     return bundleID;
+}
+
+static BOOL DSLSWorkspaceIsForwardingOpen(NSURL *url, NSDictionary *options, NSDictionary *userInfo) {
+    if (!DSLSWorkspaceIsDefaultSchemeProcess()) {
+        return NO;
+    }
+    if (![url isKindOfClass:NSURL.class]) {
+        return NO;
+    }
+    NSArray<NSDictionary *> *dictionaries = @[options ?: @{}, userInfo ?: @{}];
+    for (NSDictionary *dictionary in dictionaries) {
+        if (![dictionary isKindOfClass:NSDictionary.class]) {
+            continue;
+        }
+        NSString *targetBundleID = dictionary[kDSDefaultSchemeForwardTargetBundleIDKey];
+        if ([targetBundleID isKindOfClass:NSString.class] && targetBundleID.length > 0) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+void DSLSWorkspaceBeginForwardingToBundleID(NSString *bundleID) {
+    if (bundleID.length == 0) {
+        return;
+    }
+    void (*beginForwarding)(NSString *) = (void (*)(NSString *))dlsym(RTLD_DEFAULT, "DSLSAppLinkBeginForwardingToBundleID");
+    if (beginForwarding) {
+        beginForwarding(bundleID);
+    }
+}
+
+void DSLSWorkspaceEndForwardingToBundleID(NSString *bundleID) {
+    if (bundleID.length == 0) {
+        return;
+    }
+    void (*endForwarding)(NSString *) = (void (*)(NSString *))dlsym(RTLD_DEFAULT, "DSLSAppLinkEndForwardingToBundleID");
+    if (endForwarding) {
+        endForwarding(bundleID);
+    }
 }
 
 static BOOL DSLSWorkspaceHandleBlockedDecision(DSOpenActionDecision *decision,
@@ -151,6 +201,11 @@ static BOOL DSLSWorkspaceHandleBlockedDecision(DSOpenActionDecision *decision,
 }
 
 - (void)openApplicationWithBundleIdentifier:(NSString *)bundleIdentifier configuration:(id)config completionHandler:(id)completion {
+    if (DSLSWorkspaceIsDefaultSchemeProcess() && [bundleIdentifier isEqualToString:kDSDefaultSchemeForwardTargetBundleIDKey]) {
+        DSLog(@"LSWorkspace forward openApplicationWithBundleIdentifier:configuration: bypass %@ -> selected app", bundleIdentifier ?: @"");
+        %orig(bundleIdentifier, config, completion);
+        return;
+    }
     NSURL *url = DSExtractURLFromOpenApplicationRequest(config, bundleIdentifier, nil);
     NSString *configuredBundleID = DSLSWorkspaceConfiguredBundleIDForURL(url);
     if (configuredBundleID.length > 0) {
@@ -172,6 +227,11 @@ static BOOL DSLSWorkspaceHandleBlockedDecision(DSOpenActionDecision *decision,
 }
 
 - (void)openApplicationWithBundleIdentifier:(NSString *)bundleIdentifier usingConfiguration:(id)config completionHandler:(id)completion {
+    if (DSLSWorkspaceIsDefaultSchemeProcess() && [bundleIdentifier isEqualToString:kDSDefaultSchemeForwardTargetBundleIDKey]) {
+        DSLog(@"LSWorkspace forward openApplicationWithBundleIdentifier:usingConfiguration: bypass %@ -> selected app", bundleIdentifier ?: @"");
+        %orig(bundleIdentifier, config, completion);
+        return;
+    }
     NSURL *url = DSExtractURLFromOpenApplicationRequest(config, bundleIdentifier, nil);
     NSString *configuredBundleID = DSLSWorkspaceConfiguredBundleIDForURL(url);
     if (configuredBundleID.length > 0) {
@@ -226,6 +286,13 @@ static BOOL DSLSWorkspaceHandleBlockedDecision(DSOpenActionDecision *decision,
                                                                                  sourceInfo,
                                                                                  DSLSWorkspaceObservedBundleIDForURL(self, url),
                                                                                  DSLSWorkspaceConfiguredBundleIDForURL(url));
+    if (DSLSWorkspaceIsDefaultSchemeProcess() &&
+        [config isKindOfClass:NSDictionary.class] &&
+        [config[kDSDefaultSchemeForwardTargetBundleIDKey] length] > 0) {
+        DSLog(@"LSWorkspace forward openURL:config: bypass %@ -> selected app", url.absoluteString ?: @"");
+        %orig(url, config, completion);
+        return;
+    }
     if (DSLSWorkspaceHandleBlockedDecision(decision, nil, completion)) {
         DSLog(@"LSWorkspace openURL:config: blocked %@", url.absoluteString ?: @"");
         return;
@@ -247,6 +314,14 @@ static BOOL DSLSWorkspaceHandleBlockedDecision(DSOpenActionDecision *decision,
 }
 
 - (BOOL)openURL:(NSURL *)url withOptions:(id)options {
+    if (DSLSWorkspaceIsForwardingOpen(url, options, nil)) {
+        DSLog(@"LSWorkspace forward openURL:withOptions: bypass %@ -> selected app", url.absoluteString ?: @"");
+        NSString *forwardTargetBundleID = options[kDSDefaultSchemeForwardTargetBundleIDKey];
+        DSLSWorkspaceBeginForwardingToBundleID(forwardTargetBundleID);
+        BOOL opened = %orig(url, options);
+        DSLSWorkspaceEndForwardingToBundleID(forwardTargetBundleID);
+        return opened;
+    }
     NSDictionary<NSString *, NSString *> *sourceInfo = DSSourceApplicationInfoFromObject(options);
     DSOpenActionDecision *decision = DSHandleOpenURLActionWithConfiguredBundleID(@"LSWorkspace openURL:withOptions:",
                                                                                  url,
@@ -261,6 +336,14 @@ static BOOL DSLSWorkspaceHandleBlockedDecision(DSOpenActionDecision *decision,
 }
 
 - (BOOL)openURL:(NSURL *)url withOptions:(id)options error:(NSError **)error {
+    if (DSLSWorkspaceIsForwardingOpen(url, options, nil)) {
+        DSLog(@"LSWorkspace forward openURL:withOptions:error: bypass %@ -> selected app", url.absoluteString ?: @"");
+        NSString *forwardTargetBundleID = options[kDSDefaultSchemeForwardTargetBundleIDKey];
+        DSLSWorkspaceBeginForwardingToBundleID(forwardTargetBundleID);
+        BOOL opened = %orig(url, options, error);
+        DSLSWorkspaceEndForwardingToBundleID(forwardTargetBundleID);
+        return opened;
+    }
     NSDictionary<NSString *, NSString *> *sourceInfo = DSSourceApplicationInfoFromObject(options);
     DSOpenActionDecision *decision = DSHandleOpenURLActionWithConfiguredBundleID(@"LSWorkspace openURL:withOptions:error:",
                                                                                  url,

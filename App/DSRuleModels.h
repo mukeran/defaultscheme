@@ -14,6 +14,11 @@ FOUNDATION_EXPORT NSString * _Nonnull const kDSTestHistoryDefaultsKey;
 @property (nonatomic, copy) NSString * _Nullable executableName;
 @end
 
+@interface DSIncomingLinkOption : NSObject
+@property (nonatomic, copy) NSString * _Nullable bundleID;
+@property (nonatomic, copy) NSString * _Nullable displayName;
+@end
+
 @interface DSRuleItem : NSObject
 @property (nonatomic, copy) NSString * _Nullable key;
 @property (nonatomic, copy) NSString * _Nullable ruleHost;

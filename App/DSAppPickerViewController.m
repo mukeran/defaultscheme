@@ -70,7 +70,7 @@
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return section == 0 ? 2 : self.item.candidates.count;
+    return section == 0 ? 3 : self.item.candidates.count;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
@@ -92,10 +92,15 @@
             content.text = @"System Default";
             content.secondaryText = @"Use LaunchServices order";
             cell.accessoryType = current.length == 0 ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
-        } else {
+        } else if (indexPath.row == 1) {
             content.text = @"No App";
             content.secondaryText = @"Return no candidate app";
             cell.accessoryType = [current isEqualToString:kDSNoAppBundleSentinel] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
+        } else {
+            content.text = @"DefaultScheme";
+            content.secondaryText = @"Show the complete link in DefaultScheme";
+            content.image = DSIconForBundleID(kDSDefaultSchemeAppBundleID);
+            cell.accessoryType = [current isEqualToString:kDSDefaultSchemeAppBundleID] ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;
         }
     } else {
         DSAppOption *opt = self.item.candidates[(NSUInteger)indexPath.row];
@@ -113,7 +118,7 @@
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     NSString *selected = nil;
     if (indexPath.section == 0) {
-        selected = indexPath.row == 0 ? nil : kDSNoAppBundleSentinel;
+        selected = indexPath.row == 0 ? nil : (indexPath.row == 1 ? kDSNoAppBundleSentinel : kDSDefaultSchemeAppBundleID);
     } else {
         selected = self.item.candidates[(NSUInteger)indexPath.row].bundleID;
     }

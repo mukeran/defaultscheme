@@ -80,6 +80,20 @@ static BOOL DSLSDOpenClientHandleBlockedDecision(DSOpenActionDecision *decision,
     return YES;
 }
 
+static NSString *DSLSDOpenClientForwardTargetBundleID(id userInfo, id options) {
+    if (![userInfo isKindOfClass:NSDictionary.class] && ![options isKindOfClass:NSDictionary.class]) {
+        return nil;
+    }
+    id target = nil;
+    if ([userInfo isKindOfClass:NSDictionary.class]) {
+        target = ((NSDictionary *)userInfo)[kDSDefaultSchemeForwardTargetBundleIDKey];
+    }
+    if (!target && [options isKindOfClass:NSDictionary.class]) {
+        target = ((NSDictionary *)options)[kDSDefaultSchemeForwardTargetBundleIDKey];
+    }
+    return [target isKindOfClass:NSString.class] ? target : nil;
+}
+
 %group LSDOpenClientHooks
 
 %hook _LSDOpenClient
@@ -140,6 +154,11 @@ static BOOL DSLSDOpenClientHandleBlockedDecision(DSOpenActionDecision *decision,
 }
 
 - (void)openApplicationWithIdentifier:(NSString *)identifier options:(id)options useClientProcessHandle:(BOOL)useClientProcessHandle completionHandler:(id)completion {
+    if ([identifier isEqualToString:kDSDefaultSchemeForwardTargetBundleIDKey]) {
+        DSLog(@"_LSDOpenClient openApplicationWithIdentifier forwarding to selected app bypass");
+        %orig(identifier, options, useClientProcessHandle, completion);
+        return;
+    }
     NSURL *url = DSExtractURLFromOpenApplicationRequest(options, nil, nil);
     NSString *configuredBundleID = DSConfiguredBundleIDForURL(url);
     if (configuredBundleID.length > 0) {
@@ -161,6 +180,26 @@ static BOOL DSLSDOpenClientHandleBlockedDecision(DSOpenActionDecision *decision,
 }
 
 - (void)openURL:(NSURL *)url options:(id)options completionHandler:(id)completion {
+    NSString *forwardTargetBundleID = DSLSDOpenClientForwardTargetBundleID(nil, options);
+    if (forwardTargetBundleID.length > 0) {
+        DSLog(@"_LSDOpenClient openURL forwarding %@ -> selected %@", url.absoluteString ?: @"", forwardTargetBundleID);
+        if (DSIsWebURL(url)) {
+            DSAppendOpenLogEntry(@"_LSDOpenClient openURL forward", url, forwardTargetBundleID, nil);
+            [self performOpenOperationWithURL:url
+                              bundleIdentifier:forwardTargetBundleID
+                            documentIdentifier:nil
+                            isContentManaged:NO
+                            sourceAuditToken:NULL
+                                      userInfo:nil
+                                      options:options
+                                      delegate:nil
+                            completionHandler:completion];
+            return;
+        }
+        DSAppendOpenLogEntry(@"_LSDOpenClient openURL forward scheme", url, forwardTargetBundleID, nil);
+        %orig(url, options, completion);
+        return;
+    }
     NSString *configuredBundleID = DSConfiguredBundleIDForURL(url);
     NSDictionary<NSString *, NSString *> *sourceInfo = DSSourceApplicationInfoFromObjects(options, self, nil, nil);
     DSOpenActionDecision *decision = DSHandleOpenURLActionWithConfiguredBundleID(@"_LSDOpenClient openURL",
@@ -207,6 +246,16 @@ static BOOL DSLSDOpenClientHandleBlockedDecision(DSOpenActionDecision *decision,
 }
 
 - (void)performOpenOperationWithURL:(NSURL *)url bundleIdentifier:(NSString *)bundleIdentifier documentIdentifier:(id)documentIdentifier isContentManaged:(BOOL)isContentManaged sourceAuditToken:(const void *)sourceAuditToken userInfo:(id)userInfo options:(id)options delegate:(id)delegate completionHandler:(id)completion {
+    NSString *forwardTargetBundleID = DSLSDOpenClientForwardTargetBundleID(userInfo, options);
+    if (forwardTargetBundleID.length > 0) {
+        DSLog(@"_LSDOpenClient performOpenOperation forwarding %@ requested=%@ -> selected %@",
+              url.absoluteString ?: @"",
+              bundleIdentifier ?: @"",
+              forwardTargetBundleID);
+        DSAppendOpenLogEntry(@"_LSDOpenClient performOpenOperation forward", url, forwardTargetBundleID, nil);
+        %orig(url, forwardTargetBundleID, documentIdentifier, isContentManaged, sourceAuditToken, userInfo, options, delegate, completion);
+        return;
+    }
     NSString *configuredBundleID = DSConfiguredBundleIDForURL(url);
     NSDictionary<NSString *, NSString *> *objectSourceInfo = DSSourceApplicationInfoFromObjects(userInfo, options, delegate, self);
     NSDictionary<NSString *, NSString *> *pendingSourceInfo = DSConsumePendingLSDOpenSource(url, configuredBundleID.length > 0 ? configuredBundleID : bundleIdentifier);

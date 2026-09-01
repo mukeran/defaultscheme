@@ -2,4 +2,6 @@
 
 @interface DSRootViewController : UIViewController
 
+- (void)openIncomingLinkInTestTool:(NSString *)linkString;
+
 @end

@@ -49,6 +49,24 @@ static NSString *const kDSMixedConfiguredBundleID = @"__DS_MIXED__";
 
 @implementation DSRootViewController
 
+- (void)openIncomingLinkInTestTool:(NSString *)linkString {
+    if (linkString.length == 0) {
+        return;
+    }
+    self.showingTestPage = YES;
+    self.showingLogPage = NO;
+    self.showingSettingsPage = NO;
+    self.testController.view.hidden = NO;
+    self.logController.view.hidden = YES;
+    self.settingsController.view.hidden = YES;
+    self.filterBar.hidden = YES;
+    self.tableView.hidden = YES;
+    [self.testController enterURLString:linkString andTest:YES];
+    [self updateRulesLoadingState];
+    [self updateTitle];
+    [self updateNavigationItems];
+}
+
 - (id)ds_safeInvokeNoArgSelector:(SEL)selector onObject:(id)obj {
     if (!obj || !selector || ![obj respondsToSelector:selector]) {
         return nil;
@@ -1169,6 +1187,9 @@ static NSString *const kDSMixedConfiguredBundleID = @"__DS_MIXED__";
     }
     if ([configuredBundleID isEqualToString:kDSNoAppBundleSentinel]) {
         return @"No App";
+    }
+    if (DSIsDefaultSchemeAppBundleID(configuredBundleID)) {
+        return @"DefaultScheme";
     }
     if (configuredBundleID.length > 0) {
         return [self appSummaryForBundleID:configuredBundleID] ?: configuredBundleID;

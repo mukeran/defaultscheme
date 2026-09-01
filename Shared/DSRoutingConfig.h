@@ -2,6 +2,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+FOUNDATION_EXPORT NSString *const kDSDefaultSchemeAppBundleID;
+FOUNDATION_EXPORT NSString *const kDSDefaultSchemeForwardTargetBundleIDKey;
+BOOL DSIsDefaultSchemeAppBundleID(NSString *_Nullable bundleID);
 FOUNDATION_EXPORT NSString *const kDSRoutingConfigPath;
 FOUNDATION_EXPORT NSString *const kDSRoutingConfigMirrorFilename;
 FOUNDATION_EXPORT NSString *const kDSNoAppBundleSentinel;

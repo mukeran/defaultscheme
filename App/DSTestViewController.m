@@ -14,6 +14,13 @@
 
 @implementation DSTestViewController
 
+- (void)enterURLString:(NSString *)urlString andTest:(BOOL)test {
+    self.urlField.text = urlString ?: @"";
+    if (test) {
+        [self testTapped];
+    }
+}
+
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.title = @"Test";
